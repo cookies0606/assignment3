@@ -8,7 +8,7 @@ if 'api_key' not in st.session_state:
 st.title("GPT-4.1-mini ChatBot")
 
 # --- API Key 입력 받기 ---
-api_key_input = st.text_input("Enter your OpenAI API Key:", type="password")
+api_key_input = st.text_input("Enter your OpenAI API Key:", type="password", value=st.session_state.api_key)
 if api_key_input:
     st.session_state['api_key'] = api_key_input
 
