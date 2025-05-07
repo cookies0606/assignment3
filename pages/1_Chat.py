@@ -10,7 +10,7 @@ if "api_key" not in st.session_state:
 st.title("💬 Chat with GPT-4.1-mini")
 
 # API 키 입력
-api_key_input = st.text_input("OpenAI API Key 입력", type="password")
+api_key_input = st.text_input("OpenAI API Key 입력", type="password", value=st.session_state.api_key)
 if api_key_input:
     st.session_state.api_key = api_key_input
 
