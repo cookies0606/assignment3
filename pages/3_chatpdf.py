@@ -33,14 +33,16 @@ if uploaded_file:
         tmp_path = tmp.name
 
     with st.spinner("📤 PDF를 업로드하고 벡터 스토어를 생성 중입니다..."):
-        try:
-            file = client.files.create(file=open(tmp_path, "rb"), purpose="assistants")
+    try:
+        # ✅ 파일 객체를 열어서 넘긴다
+        with open(tmp_path, "rb") as f:
+            file = client.files.create(file=f, purpose="assistants")
 
-            vector_store = client.vector_stores.create(name="My PDF Store")
-            client.vector_stores.file_batches.upload_and_poll(
-                vector_store_id=vector_store.id,
-                files=[file.id]
-            )
+        vector_store = client.vector_stores.create(name="My PDF Store")
+        client.vector_stores.file_batches.upload_and_poll(
+            vector_store_id=vector_store.id,
+            files=[file.id]
+        )
 
             assistant = client.assistants.create(
                 name="PDF Assistant",
