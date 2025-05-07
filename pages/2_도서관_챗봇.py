@@ -16,7 +16,7 @@ if "library_chat_history" not in st.session_state:
     st.session_state.library_chat_history = []
 
 # API 키 입력
-api_key = st.text_input("OpenAI API Key", type="password")
+api_key = st.text_input("OpenAI API Key", type="password", value=st.session_state.api_key)
 if api_key:
     st.session_state.api_key = api_key
 
