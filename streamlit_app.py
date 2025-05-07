@@ -36,4 +36,3 @@ if user_input and st.session_state['api_key']:
         st.write(response)
     except Exception as e:
         st.error(f"Error: {e}")
-st.markdown()
