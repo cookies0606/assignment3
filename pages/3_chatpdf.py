@@ -1,114 +1,90 @@
 import streamlit as st
-import os
 import openai
-import tempfile
-import faiss
-import numpy as np
-from PyPDF2 import PdfReader
-from sklearn.metrics.pairwise import cosine_similarity
+from openai import OpenAI
+import os
 
-# 세션 초기화
-if "index" not in st.session_state:
-    st.session_state.index = None
-if "docs" not in st.session_state:
-    st.session_state.docs = []
+# 파일 저장용
+def save_file(uploaded_file):
+    with open(uploaded_file.name, "wb") as f:
+        f.write(uploaded_file.getbuffer())
+    return uploaded_file.name
+
+# 세션 상태 초기화
+if "assistant" not in st.session_state:
+    st.session_state.assistant = None
+if "thread" not in st.session_state:
+    st.session_state.thread = None
+if "vector_store" not in st.session_state:
+    st.session_state.vector_store = None
+if "client" not in st.session_state:
+    st.session_state.client = None
 if "api_key" not in st.session_state:
     st.session_state.api_key = ""
 
-# 페이지 기본 설정
-st.set_page_config(page_title="ChatPDF (No LangChain)", layout="wide")
-st.title("📄 ChatPDF (langchain 없이 구현)")
-
-# API 키 입력
-api_key = st.text_input("🔑 OpenAI API Key 입력", type="password", value=st.session_state.api_key)
+# Streamlit UI
+st.title("📄 File Assistant ChatBot")
+api_key = st.text_input("🔑 OpenAI API Key", type="password", value=st.session_state.api_key)
 if api_key:
     st.session_state.api_key = api_key
-    openai.api_key = api_key
+    st.session_state.client = OpenAI(api_key=api_key)
 
-# Clear 버튼
-if st.button("🧹 Clear Vector Store"):
-    st.session_state.index = None
-    st.session_state.docs = []
-    st.success("벡터 저장소 초기화 완료!")
+uploaded_file = st.file_uploader("📎 텍스트 또는 PDF 파일 업로드", type=["txt", "pdf"])
 
-# PDF 업로드
-uploaded_file = st.file_uploader("📎 PDF 파일을 업로드하세요", type="pdf")
+# 벡터 스토어 + 어시스턴트 생성
+if uploaded_file and st.button("🚀 파일 업로드 및 챗봇 생성"):
+    filename = save_file(uploaded_file)
+    client = st.session_state.client
 
-# PDF → 텍스트 → 청크 분리 → 임베딩 + FAISS
-def embed_texts(text_chunks):
-    embeddings = []
-    for chunk in text_chunks:
-        response = openai.Embedding.create(
-            model="text-embedding-ada-002",
-            input=chunk
+    # 벡터 스토어 생성
+    vector_store = client.vector_stores.create(name="ChatFileStore")
+    st.session_state.vector_store = vector_store
+
+    # 파일 업로드 및 인덱싱
+    with open(filename, "rb") as f:
+        client.vector_stores.file_batches.upload_and_poll(
+            vector_store_id=vector_store.id,
+            files=[f]
         )
-        embedding = response['data'][0]['embedding']
-        embeddings.append(np.array(embedding, dtype=np.float32))
-    return embeddings
 
-def split_text(text, max_tokens=500):
-    sentences = text.split(". ")
-    chunks, chunk = [], ""
-    for sentence in sentences:
-        if len(chunk) + len(sentence) < max_tokens:
-            chunk += sentence + ". "
-        else:
-            chunks.append(chunk.strip())
-            chunk = sentence + ". "
-    if chunk:
-        chunks.append(chunk.strip())
-    return chunks
-
-if uploaded_file is not None:
-    with tempfile.NamedTemporaryFile(delete=False, suffix=".pdf") as tmp:
-        tmp.write(uploaded_file.read())
-        tmp_path = tmp.name
-
-    # 텍스트 추출
-    reader = PdfReader(tmp_path)
-    raw_text = ""
-    for page in reader.pages:
-        raw_text += page.extract_text()
-
-    # 청크로 나누기
-    text_chunks = split_text(raw_text)
-    st.session_state.docs = text_chunks
-
-    # 임베딩 및 FAISS 색인 구축
-    embeddings = embed_texts(text_chunks)
-    dimension = len(embeddings[0])
-    index = faiss.IndexFlatL2(dimension)
-    index.add(np.array(embeddings))
-    st.session_state.index = index
-
-    st.success("✅ PDF 처리 및 임베딩 완료!")
-
-# 질문 입력
-query = st.text_input("❓ 질문을 입력하세요:")
-
-# 질의응답 수행
-if query and st.session_state.index:
-    # 쿼리 임베딩
-    query_embedding = openai.Embedding.create(
-        model="text-embedding-ada-002",
-        input=query
-    )["data"][0]["embedding"]
-    query_vector = np.array(query_embedding, dtype=np.float32).reshape(1, -1)
-
-    # 유사한 문서 검색
-    D, I = st.session_state.index.search(query_vector, k=3)
-    retrieved_docs = [st.session_state.docs[i] for i in I[0]]
-
-    context = "\n".join(retrieved_docs)
-    prompt = f"다음 문서를 참고하여 질문에 답변하세요:\n\n{context}\n\n질문: {query}\n답변:"
-    
-    # ChatGPT로 질문
-    response = openai.ChatCompletion.create(
-        model="gpt-3.5-turbo",
-        messages=[
-            {"role": "system", "content": "당신은 문서 기반 질문에 친절하게 답변하는 전문가입니다."},
-            {"role": "user", "content": prompt}
-        ]
+    # 어시스턴트 생성
+    assistant = client.beta.assistants.create(
+        instructions="업로드된 파일을 기반으로 친절하게 응답하세요.",
+        model="gpt-4o",  # 또는 "gpt-4o-mini"
+        tools=[{"type": "file_search"}],
+        tool_resources={
+            "file_search": {
+                "vector_store_ids": [vector_store.id]
+            }
+        }
     )
-    answer = response["choices"][0]["message"]["content"]
-    st.markdown(f"📘 **답변:** {answer}")
+    st.session_state.assistant = assistant
+
+    # 쓰레드 생성
+    st.session_state.thread = client.beta.threads.create()
+    st.success("✅ 어시스턴트 준비 완료! 질문을 입력해보세요.")
+
+# 챗 인터페이스
+if st.session_state.assistant and st.session_state.thread:
+    user_input = st.text_input("❓ 질문을 입력하세요:")
+    if user_input:
+        with st.spinner("답변 생성 중..."):
+            msg = st.session_state.client.beta.threads.messages.create(
+                thread_id=st.session_state.thread.id,
+                role="user",
+                content=user_input
+            )
+            run = st.session_state.client.beta.threads.runs.create_and_poll(
+                thread_id=st.session_state.thread.id,
+                assistant_id=st.session_state.assistant.id
+            )
+
+            if run.status == "completed":
+                messages = st.session_state.client.beta.threads.messages.list(
+                    thread_id=st.session_state.thread.id
+                )
+                for m in reversed(messages.data):
+                    if m.role == "assistant":
+                        st.markdown(f"🧠 **Assistant:** {m.content[0].text.value}")
+                        break
+            else:
+                st.error(f"❌ Error: {run.status}")
