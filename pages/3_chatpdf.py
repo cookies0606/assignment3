@@ -28,10 +28,10 @@ if api_key:
     st.session_state.api_key = api_key
     st.session_state.client = OpenAI(api_key=api_key)
 
-uploaded_file = st.file_uploader("📎 텍스트 또는 PDF 파일 업로드", type=["txt", "pdf"])
+uploaded_file = st.file_uploader(" 텍스트 또는 PDF 파일 업로드", type=["txt", "pdf"])
 
 # 벡터 스토어 + 어시스턴트 생성
-if uploaded_file and st.button("🚀 파일 업로드 및 챗봇 생성"):
+if uploaded_file and st.button(" 파일 업로드 및 챗봇 생성"):
     filename = save_file(uploaded_file)
     client = st.session_state.client
 
@@ -61,11 +61,11 @@ if uploaded_file and st.button("🚀 파일 업로드 및 챗봇 생성"):
 
     # 쓰레드 생성
     st.session_state.thread = client.beta.threads.create()
-    st.success("✅ 어시스턴트 준비 완료! 질문을 입력해보세요.")
+    st.success("어시스턴트 준비 완료! 질문을 입력해보세요.")
 
 # 챗 인터페이스
 if st.session_state.assistant and st.session_state.thread:
-    user_input = st.text_input("❓ 질문을 입력하세요:")
+    user_input = st.text_input("질문을 입력하세요:")
     if user_input:
         with st.spinner("답변 생성 중..."):
             msg = st.session_state.client.beta.threads.messages.create(
@@ -84,7 +84,7 @@ if st.session_state.assistant and st.session_state.thread:
                 )
                 for m in reversed(messages.data):
                     if m.role == "assistant":
-                        st.markdown(f"🧠 **Assistant:** {m.content[0].text.value}")
+                        st.markdown(f" **Assistant:** {m.content[0].text.value}")
                         break
             else:
-                st.error(f"❌ Error: {run.status}")
+                st.error(f" Error: {run.status}")
