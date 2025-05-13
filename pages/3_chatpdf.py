@@ -36,7 +36,7 @@ if uploaded_file and st.button("🚀 파일 업로드 및 챗봇 생성"):
     client = st.session_state.client
 
     # 벡터 스토어 생성
-    vector_store = client.vector_stores.create(name="ChatFileStore")
+    vector_store = client.vector_stores.create(name="chatfilestore")
     st.session_state.vector_store = vector_store
 
     # 파일 업로드 및 인덱싱
