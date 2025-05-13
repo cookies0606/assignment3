@@ -48,6 +48,7 @@ if uploaded_file and st.button(" 파일 업로드 및 챗봇 생성"):
     # 벡터 스토어 생성
     vector_store = client.vector_stores.create(name="chatfilestore")
     st.session_state.vector_store = vector_store
+    st.session_state.vector_store_id = vector_store.id
 
     # 파일 업로드 및 인덱싱
     with open(filename, "rb") as f:
