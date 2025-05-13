@@ -30,15 +30,9 @@ if api_key:
 
 uploaded_file = st.file_uploader(" 텍스트 또는 PDF 파일 업로드", type=["txt", "pdf"])
 
-if "vector_store_id" not in st.session_state:
-    st.warning("삭제할 벡터 스토어가 없습니다.")
-else:
-    client = OpenAI(api_key=st.session_state.api_key)
-
-    if st.button("🗑️ 벡터 스토어 삭제"):
-        response = client.beta.vector_stores.delete(st.session_state.vector_store_id)
-        if response.deleted:
-            st.success("완료!")
+if st.button("🧹 Clear Vector Store"):
+    st.session_state.vectorstore = None
+    st.success("벡터 저장소가 초기화되었습니다.")
 
 # 벡터 스토어 + 어시스턴트 생성
 if uploaded_file and st.button(" 파일 업로드 및 챗봇 생성"):
